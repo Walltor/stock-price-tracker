@@ -2,7 +2,7 @@
 This is a backend application written in PHP using the Laravel framework. It integrates with the Alpha Vantage API to collect and aggregate real-time stock price data.
 
 ## Features
-- [Laravel 11.x](https://laravel.com/docs/11.x/11)
+- [Laravel 11.x](https://laravel.com/docs/11.x/)
 - [Alpha Vantage API](https://www.alphavantage.co/documentation/)
 
 ## Installation
