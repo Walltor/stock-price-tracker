@@ -24,6 +24,10 @@ composer create-project laravel/laravel stock-price-tracker
    DB_USERNAME=your_database_username
    DB_PASSWORD=your_database_password
 ```
+- Install [Guzzle](https://github.com/guzzle/guzzle) via Composer. This will allow us to fetch Alpha Vantage API data.
+```bash
+composer require guzzlehttp/guzzle
+```
 - Configure your .env to contain the Alpha Vantage API URL and [key](https://www.alphavantage.co/support/#api-key). Replace "demo" with your actual API key for production use.
 ```plaintext
 ALPHAVANTAGE_API_URL=https://www.alphavantage.co
