@@ -9,9 +9,8 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::get('/fetch-stock-prices', [StockPriceController::class, 'fetchStockPrices']);
-Route::post('/store-stock-price', [StockPriceController::class, 'storeStockPrice']);
+Route::post('/store-stock-price', [StockPriceController::class, 'storeStockPriceBySymbol']);
 Route::get('/get-stock-prices', [StockPriceController::class, 'getStockPricesBySymbol']);
-Route::post('/cache-stock-prices', [StockPriceController::class, 'cacheStockPrices']);
 Route::get('/get-cached-all', [StockPriceController::class, 'getCachedAll']);
 Route::get('/get-cached-single', [StockPriceController::class, 'getCachedSingle']);
 Route::get('/get-cached-multiple', [StockPriceController::class, 'getCachedMultiple']);

@@ -2,66 +2,149 @@
 
 namespace App\Services;
 
+use App\Models\StockPrice;
 use Exception;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ClientException;
-use GuzzleHttp\Exception\ConnectException;
-use GuzzleHttp\Exception\RequestException;
-use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request as HttpRequest;
+
+use function Laravel\Prompts\error;
 
 class StockPriceService
 {
-    protected $http;
-    protected $url;
+    /**
+     * Create a new class instance.
+     */
 
-    public function __construct(Client $httpClient)
-    {
-        $this->http = $httpClient;
-        $this->url = Config::get('services.alphavantage.api_url');
+    protected $fetchService;
+    protected $stockService;
+    protected $cacheService;
+    public function __construct(
+        FetchService $fetchService,
+        StockService $stockService,
+        CacheService $cacheService
+    ) {
+        $this->fetchService = $fetchService;
+        $this->stockService = $stockService;
+        $this->cacheService = $cacheService;
     }
 
-    public function fetchStockPrices($symbol)
+    public function fetchStockPrices()
     {
-        try {
-            $response = $this->http->get("$this->url/query", [
-                'query' => [
-                    'function' => 'GLOBAL_QUOTE',
-                    'symbol' => $symbol,
-                    'apikey' => Config::get('services.alphavantage.api_key')
-                ]
-            ]);
+        $symbols = ['AAPL', 'GOOGL', 'AMZN', 'TSLA', 'CSCO'];
+        $stockPrices = [];
 
-            $data = json_decode($response->getBody(), true);
+        foreach ($symbols as $symbol) {
+            $stockPrice = $this->fetchService->fetchStockPrices($symbol);
 
-            if (isset($data['Information']) && strpos($data['Information'], 'API rate limit') !== false) {
-                throw new Exception("Daily API rate limit (25) exceeded.", 429);
+            if ($stockPrice) {
+                $stockPrices[] = $stockPrice;
             }
-
-            if (isset($data['Error Message']) && strpos($data['Error Message'], 'apikey is invalid') !== false) {
-                throw new Exception("API key is invalid or missing.", 401);
-            }
-
-            if (isset($data['Global Quote'])) {
-                return [
-                    'symbol' => $data['Global Quote']['01. symbol'],
-                    'open' => $data['Global Quote']['02. open'],
-                    'high' => $data['Global Quote']['03. high'],
-                    'low' => $data['Global Quote']['04. low'],
-                    'price' => $data['Global Quote']['05. price'],
-                    'volume' => $data['Global Quote']['06. volume'],
-                    'latest trading day' => $data['Global Quote']['07. latest trading day'],
-                    'previous close' => $data['Global Quote']['08. previous close'],
-                    'change' => $data['Global Quote']['09. change'],
-                    'change percent' => rtrim($data['Global Quote']['10. change percent'], '%')
-                ];
-            }
-            return null;
-        } catch (ClientException | ConnectException | RequestException $e) {
-            Log::error('Error fetching stock price: ' . $e->getMessage());
-            throw new Exception('Error occurred while making API request.', 500);
-        } catch (Exception $e) {
-            throw $e;
         }
+        return $stockPrices;
+    }
+
+    public function storeStockPriceBySymbol(HttpRequest $request)
+    {
+        $validatedData = $request->validate([
+            'symbol' => 'required|string|max:10',
+        ]);
+
+        $symbol = $validatedData['symbol'];
+
+        try {
+            $stockPriceData = $this->fetchService->fetchStockPrices($symbol);
+
+            if ($stockPriceData) {
+                $this->storeStockPrice($stockPriceData);
+                return response()->json(['message' => 'Stock data for ' . $symbol . ' stored successfully!'], 200);
+            } else {
+                return response()->json(['error' => 'No data available for ' . $symbol . '.'], 404);
+            }
+        } catch (Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function storeStockPrice($stockPriceData)
+    {
+        $symbol = $stockPriceData['symbol'];
+        $stock = $this->stockService->storeStock($symbol);
+
+        StockPrice::create([
+            'stock_id' => $stock->id,
+            'open' => $stockPriceData['open'],
+            'high' => $stockPriceData['high'],
+            'low' => $stockPriceData['low'],
+            'price' => $stockPriceData['price'],
+            'volume' => $stockPriceData['volume'],
+            'latest_trading_day' => $stockPriceData['latest trading day'],
+            'previous_close' => $stockPriceData['previous close'],
+            'change' => $stockPriceData['change'],
+            'change_percent' => $stockPriceData['change percent']
+        ]);
+    }
+
+    public function getStockPricesBySymbol(HttpRequest $request)
+    {
+        $validatedData = $request->validate([
+            'symbol' => 'required|string|max:10'
+        ]);
+
+        $symbol = $validatedData['symbol'];
+
+        try {
+            $stock = $this->stockService->getStockBySymbol($symbol);
+
+            if ($stock) {
+                $stockPrices = StockPrice::where('stock_id', $stock->id)->get();
+
+                if ($stockPrices) {
+                    return $stockPrices;
+                } else {
+                    return response()->json(error('No data found for ' . $symbol . '.'));
+                }
+            } else {
+                return response()->json(error('No stock named ' . $symbol . ' found.'));
+            }
+        } catch (Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function calculate(HttpRequest $request)
+    {
+        $validatedData = $request->validate([
+            'symbols' => 'required|array',
+            'end_date_time' => 'required|date',
+            'start_date_time' => 'required|date'
+        ]);
+
+        $symbols = $validatedData['symbols'];
+        $endDate = $validatedData['end_date_time'];
+        $startDate = $validatedData['start_date_time'];
+        $results = [];
+
+        foreach ($symbols as $symbol) {
+            $stock = $this->stockService->getStockBySymbol($symbol);
+
+            if ($stock) {
+                $stockPrices = StockPrice::where('stock_id', $stock->id)->where('created_at', '>=', $startDate)->where('created_at', '<=', $endDate)->get();
+                if ($stockPrices->isEmpty()) {
+                    $results[] = ['Message' => 'No price changes for ' .  $symbol . ' recorded between ' . $startDate . ' and ' . $endDate . '.'];
+                    continue;
+                }
+            } else {
+                $results[] = ['Message' => 'Stock data for ' . $symbol . ' not found.'];
+                continue;
+            }
+
+            $earliest = $stockPrices->min('created_at');
+            $latest = $stockPrices->max('created_at');
+            $priceStart = $stockPrices->where('created_at', $earliest)->first()->price;
+            $priceEnd = $stockPrices->where('created_at', $latest)->first()->price;
+            $result = round(($priceEnd - $priceStart) / $priceStart, 4);
+            $results[] = ['Message' => 'Price change for ' . $symbol . ' between ' . $startDate . ' and ' . $endDate . ':', 'Earliest price: ' => $priceStart, 'Latest price' => $priceEnd, 'Result' => $result];
+        }
+
+        return $results;
     }
 }
