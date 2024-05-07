@@ -97,38 +97,6 @@
 			"response": []
 		},
 		{
-			"name": "Cache stock prices",
-			"request": {
-				"method": "POST",
-				"header": [],
-				"body": {
-					"mode": "raw",
-					"raw": "{\r\n    \"symbol\": \"NVDA\"\r\n}",
-					"options": {
-						"raw": {
-							"language": "json"
-						}
-					}
-				},
-				"url": {
-					"raw": "http://127.0.0.1:8000/api/cache-stock-prices",
-					"protocol": "http",
-					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
-					],
-					"port": "8000",
-					"path": [
-						"api",
-						"cache-stock-prices"
-					]
-				}
-			},
-			"response": []
-		},
-		{
 			"name": "Get all cached stocks",
 			"request": {
 				"method": "GET",
@@ -161,7 +129,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"key\": \"NVDA\"\r\n}",
+					"raw": "{\r\n    \"key\": \"AAPL\"\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -196,7 +164,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"keys\": [\r\n        \"CSCO\",\r\n        \"AMZN\",\r\n        \"NVDA\",\r\n        \"AAAA\"\r\n    ]\r\n}",
+					"raw": "{\r\n    \"keys\": [\r\n        \"AAPL\",\r\n        \"AMZN\",\r\n        \"NVDA\",\r\n        \"AAAA\"\r\n    ]\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
